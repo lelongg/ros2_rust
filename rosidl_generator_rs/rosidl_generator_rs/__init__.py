@@ -83,6 +83,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         "is_non_fixed_size_array": is_non_fixed_size_array,
         "is_string_array": is_string_array,
         "is_primitive_array": is_primitive_array,
+        "is_non_primitive_array": is_non_primitive_array,
         "is_string": is_string,
         "is_primitive": is_primitive,
     }
@@ -327,13 +328,15 @@ MSG_TYPE_TO_C = {
 }
 
 
-def get_ffi_type(type_, package_name, subfolder="msg"):
-    if type_.is_array and type_.is_primitive_type():
-        return "*const %s" % MSG_TYPE_TO_C[type_.type]
-    elif type_.is_primitive_type():
-        return MSG_TYPE_TO_C[type_.type]
+def get_ffi_type(field, package_name, subfolder="msg"):
+    if is_primitive_array(field):
+        return "*const %s" % MSG_TYPE_TO_C[field.type.type]
+    elif is_array(field):
+        return "*const uintptr_t"
+    elif is_primitive(field):
+        return MSG_TYPE_TO_C[field.type.type]
     else:
-        return "*const std::os::raw::c_void"
+        return "uintptr_t"
 
 
 def get_ffi_return_type(type_, package_name, subfolder="msg"):
@@ -391,14 +394,13 @@ def get_builtin_c_type(type_):
     assert False, "unknown type '%s'" % type_
 
 
-def get_c_type(type_, subfolder="msg"):
-    if type_.is_array:
-        if type_.is_primitive_type() and type_.array_size:
-            return "%s const*" % get_builtin_c_type(type_.type)
-        else:
-            return "uintptr_t"
-    elif type_.is_primitive_type():
-        return get_builtin_c_type(type_.type)
+def get_c_type(field, subfolder="msg"):
+    if is_primitive_array(field):
+        return "%s const*" % get_builtin_c_type(field.type.type)
+    elif is_array(field):
+        return "uintptr_t const*"
+    elif is_primitive(field):
+        return get_builtin_c_type(field.type.type)
     else:
         return "uintptr_t"
 
@@ -506,6 +508,10 @@ def is_string_array(field):
 
 def is_primitive_array(field):
     return field.type.is_array and field.type.is_primitive_type()
+
+
+def is_non_primitive_array(field):
+    return field.type.is_array and not field.type.is_primitive_type()
 
 
 def is_string(field):

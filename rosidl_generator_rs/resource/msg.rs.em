@@ -45,7 +45,7 @@ extern "C" {
 @[    if is_non_fixed_size_array(field)]@
       @(sanitize_identifier(field.name))__len: size_t,
 @[    end if]@
-      @(sanitize_identifier(field.name)): @(get_ffi_type(field.type, package_name)),
+      @(sanitize_identifier(field.name)): @(get_ffi_type(field, package_name)),
 @[end for]@
     ) -> uintptr_t;
 
@@ -65,33 +65,37 @@ impl @(type_name) {
 @[for field in msg_spec.fields]@
 @[    if is_string_array(field)]@
     let @(sanitize_identifier(field.name))_c_strings = self.@(sanitize_identifier(field.name)).iter().map(|s| CString::new(s.clone()).unwrap()).collect::<Vec<_>>();
+@[    elif is_non_primitive_array(field)]@
+    let @(sanitize_identifier(field.name))__natives = self.@(sanitize_identifier(field.name)).iter().map(|x| x.get_native_message());
 @[    elif is_string(field)]@
-    let @(sanitize_identifier(field.name))_c_string = CString::new(self.@(sanitize_identifier(field.name)).clone()).unwrap();
+    let @(sanitize_identifier(field.name))__c_string = CString::new(self.@(sanitize_identifier(field.name)).clone()).unwrap();
 @[    end if]@
 @[end for]@
 @
-    unsafe { @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
+    unsafe {
+      @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
 @[for field in msg_spec.fields]@
 @
 @[    if is_non_fixed_size_array(field)]@
-      self.@(sanitize_identifier(field.name)).len() as size_t,
+        self.@(sanitize_identifier(field.name)).len() as size_t,
 @[    end if]@
 @
 @[    if is_string_array(field)]@
-      @(sanitize_identifier(field.name))_c_strings.iter().map(|c_string| c_string.as_ptr()).collect::<Vec<_>>().as_ptr(),
+        @(sanitize_identifier(field.name))__c_strings.iter().map(|c_string| c_string.as_ptr()).collect::<Vec<_>>().as_ptr(),
 @[    elif is_primitive_array(field)]@
-      self.@(sanitize_identifier(field.name)).as_ptr(),
+        self.@(sanitize_identifier(field.name)).as_ptr(),
 @[    elif is_array(field)]@
-      self.@(sanitize_identifier(field.name)).as_ptr() as *const libc::c_void,
+        @(sanitize_identifier(field.name))__natives.as_ptr(),
 @[    elif is_string(field)]@
-      @(sanitize_identifier(field.name))_c_string.as_ptr(),
+        @(sanitize_identifier(field.name))__c_string.as_ptr(),
 @[    elif is_primitive(field)]@
-      self.@(sanitize_identifier(field.name)),
+        self.@(sanitize_identifier(field.name)),
 @[    else]@
-      self.@(sanitize_identifier(field.name)).get_native_message() as *const _,
+        self.@(sanitize_identifier(field.name)).get_native_message() as *const _,
 @[    end if]@
 @[end for]@
-    ) }
+      )
+    }
   }
 
   fn destroy_native_message(&self, message_handle: uintptr_t) {
@@ -100,15 +104,17 @@ impl @(type_name) {
     }
   }
 
-@[if msg_spec.fields]
+@[if msg_spec.fields]@
   fn read_handle(&mut self, message_handle: uintptr_t) {
     unsafe {
 @[    for field in msg_spec.fields]@
 @[        if is_fixed_size_array(field)]@
-      let mut @(field.name)_size = 0usize;
-      self.@(sanitize_identifier(field.name)).clone_from_slice(std::slice::from_raw_parts(
-          @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(
-              message_handle, &mut @(field.name)_size as *mut _) as *const _, @(field.type.array_size)));
+@[            for i in range(0, field.type.array_size)]@
+        self.@(sanitize_identifier(field.name))[@(i)].read_handle(@(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle));
+@[            end for]@
+      // self.@(sanitize_identifier(field.name)).clone_from_slice(
+      //  std::slice::from_raw_parts(
+      //    @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle) as *const _, @(field.type.array_size)));
 @[        elif is_array(field)]@
       let mut @(field.name)_size = 0usize;
       let @(field.name)_array = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(message_handle, &mut @(field.name)_size as *mut _);

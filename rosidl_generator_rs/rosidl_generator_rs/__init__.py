@@ -80,6 +80,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         "is_fixed_size_array": is_fixed_size_array,
         "is_fixed_size_string_array": is_fixed_size_string_array,
         "is_fixed_size_primitive_array": is_fixed_size_primitive_array,
+        "is_fixed_size_non_primitive_array": is_fixed_size_non_primitive_array,
         "is_non_fixed_size_array": is_non_fixed_size_array,
         "is_string_array": is_string_array,
         "is_primitive_array": is_primitive_array,
@@ -342,6 +343,8 @@ def get_ffi_type(field, package_name, subfolder="msg"):
 def get_ffi_return_type(type_, package_name, subfolder="msg"):
     if type_.is_array and type_.is_primitive_type():
         return "*const %s" % MSG_TYPE_TO_C[type_.type]
+    elif type_.is_array:
+        return "*const uintptr_t"
     elif type_.is_primitive_type():
         return MSG_TYPE_TO_C[type_.type]
     else:
@@ -495,6 +498,14 @@ def is_fixed_size_primitive_array(field):
         field.type.is_array
         and field.type.is_fixed_size_array()
         and field.type.is_primitive_type()
+    )
+
+
+def is_fixed_size_non_primitive_array(field):
+    return (
+        field.type.is_array
+        and field.type.is_fixed_size_array()
+        and not field.type.is_primitive_type()
     )
 
 

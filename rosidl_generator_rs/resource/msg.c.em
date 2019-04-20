@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdio.h>
 
 @[for subfolder, msg_spec in msg_specs]@
 @{
@@ -72,11 +73,11 @@ uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type
 @[    elif is_string_array(field)]@
     rosidl_generator_c__String__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
     for (uint i = 0; i < @(field.name)__len; ++i) {
-        // rosidl_generator_c__String__assign(&ros_message->@(field.name)[i], @(field.name)[i]);
+        rosidl_generator_c__String__assign(&(ros_message->@(field.name).data[i]), @(field.name)[i]);
     }
 @[    elif is_primitive_array(field)]@
     rosidl_generator_c__@(field.type.type)__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
-    // memcpy(ros_message->@(field.name).data, (void*) @(field.name), @(field.name)__len * sizeof(@get_builtin_c_type(field.type.type)));
+    memcpy(ros_message->@(field.name).data, (void*) @(field.name), @(field.name)__len * sizeof(@get_builtin_c_type(field.type.type)));
 @[    elif is_array(field)]@
     @(get_normalized_type(field.type))__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
     memcpy(ros_message->@(field.name).data, (void*) @(field.name), @(field.name)__len * sizeof(@get_c_type(field)));
@@ -97,21 +98,50 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
 }
 
 @[for field in msg_spec.fields]@
+@[    if is_non_fixed_size_array(field)]@
+size_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_array_size(uintptr_t message_handle) {
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
+    return ros_message->@(field.name).size;
+}
+@[    end if]@
+@
 @[    if is_fixed_size_non_primitive_array(field)]@
-void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle, uintptr_t** item_handles) {
+void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle, uintptr_t* item_handles) {
     @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
 
 @[    for i in range(field.type.array_size)]@
-    (*item_handles)[@(i)] = &(ros_message->@(field.name)[@(i)]);
+    item_handles[@(i)] = (uintptr_t)(&(ros_message->@(field.name)[@(i)]));
 @[    end for]@
 }
-@[    elif is_non_primitive_array(field)]@
+@[    elif is_fixed_size_string_array(field)]@
+void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle, uintptr_t* item_handles) {
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
+
+@[    for i in range(field.type.array_size)]@
+    item_handles[@(i)] = (uintptr_t)(ros_message->@(field.name)[@(i)].data);
+@[    end for]@
+}
+@[    elif is_string_array(field)]@
+void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle, uintptr_t* item_handles) {
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
+    size_t size = ros_message->@(field.name).size;
+
+    for(size_t i = 0; i < size; ++i) {
+        item_handles[i] = (uintptr_t)(ros_message->@(field.name).data[i].data);
+    }
+}
+@[    elif is_non_fixed_size_primitive_array(field)]@
+@(get_c_type(field)) @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle) {
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
+    return ros_message->@(field.name).data;
+}
+@[    elif is_non_fixed_size_array(field)]@
 void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(uintptr_t message_handle, uintptr_t** item_handles) {
     @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
     size_t size = ros_message->@(field.name).size;
 
     for(size_t i = 0; i < size; ++i) {
-        (*item_handles)[i] = &(ros_message->@(field.name).data[i]);
+        (*item_handles)[i] = (uintptr_t)(&(ros_message->@(field.name).data[i]));
     }
 }
 @[    else]@
@@ -119,10 +149,10 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
     @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
 @[        if is_fixed_size_array(field)]@
     return ros_message->@(field.name);
-@[        elif is_array(field)]@
-    return ros_message->@(field.name).data;
 @[        elif is_string_array(field)]@
     return ros_message->@(field.name);
+@[        elif is_array(field)]@
+    return ros_message->@(field.name).data;
 @[        elif is_string(field)]@
     return ros_message->@(field.name).data;
 @[        elif is_primitive(field)]@

@@ -82,6 +82,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         "is_fixed_size_primitive_array": is_fixed_size_primitive_array,
         "is_fixed_size_non_primitive_array": is_fixed_size_non_primitive_array,
         "is_non_fixed_size_array": is_non_fixed_size_array,
+        "is_non_fixed_size_primitive_array": is_non_fixed_size_primitive_array,
         "is_string_array": is_string_array,
         "is_primitive_array": is_primitive_array,
         "is_non_primitive_array": is_non_primitive_array,
@@ -506,6 +507,14 @@ def is_fixed_size_non_primitive_array(field):
         field.type.is_array
         and field.type.is_fixed_size_array()
         and not field.type.is_primitive_type()
+    )
+
+
+def is_non_fixed_size_primitive_array(field):
+    return (
+        field.type.is_array
+        and not field.type.is_fixed_size_array()
+        and field.type.is_primitive_type()
     )
 
 

@@ -31,7 +31,7 @@ for field in msg_spec.fields:
 }@
 
 #[allow(non_camel_case_types)]
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct @(type_name) {
 @[for field in msg_spec.fields]@
   pub @(sanitize_identifier(field.name)): @(get_rs_type(field.type, package_name)),

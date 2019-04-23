@@ -77,15 +77,18 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         "package_name": args["package_name"],
         "typesupport_impls": typesupport_impls,
         "is_array": is_array,
-        "is_fixed_size_array": is_fixed_size_array,
-        "is_fixed_size_string_array": is_fixed_size_string_array,
-        "is_fixed_size_primitive_array": is_fixed_size_primitive_array,
-        "is_fixed_size_non_primitive_array": is_fixed_size_non_primitive_array,
-        "is_non_fixed_size_array": is_non_fixed_size_array,
-        "is_non_fixed_size_primitive_array": is_non_fixed_size_primitive_array,
         "is_string_array": is_string_array,
         "is_primitive_array": is_primitive_array,
-        "is_non_primitive_array": is_non_primitive_array,
+        "is_nested_array": is_nested_array,
+        "is_static_array": is_static_array,
+        "is_dynamic_array": is_dynamic_array,
+        "is_static_string_array": is_static_string_array,
+        "is_static_primitive_array": is_static_primitive_array,
+        "is_static_nested_array": is_static_nested_array,
+        "is_dynamic_string_array": is_dynamic_string_array,
+        "is_dynamic_primitive_array": is_dynamic_primitive_array,
+        "is_dynamic_nested_array": is_dynamic_nested_array,
+        "is_dynamic_primitive_array": is_dynamic_primitive_array,
         "is_string": is_string,
         "is_primitive": is_primitive,
     }
@@ -331,23 +334,23 @@ MSG_TYPE_TO_C = {
 
 
 def get_ffi_type(field, package_name, subfolder="msg"):
-    if is_primitive_array(field):
+    if field.type.is_array and field.type.is_primitive_type():
         return "*const %s" % MSG_TYPE_TO_C[field.type.type]
-    elif is_array(field):
+    elif field.type.is_array:
         return "*const uintptr_t"
-    elif is_primitive(field):
+    elif field.type.is_primitive_type():
         return MSG_TYPE_TO_C[field.type.type]
     else:
         return "uintptr_t"
 
 
-def get_ffi_return_type(type_, package_name, subfolder="msg"):
-    if type_.is_array and type_.is_primitive_type():
-        return "*const %s" % MSG_TYPE_TO_C[type_.type]
-    elif type_.is_array:
+def get_ffi_return_type(field, package_name, subfolder="msg"):
+    if field.type.is_array and field.type.is_primitive_type():
+        return "*const %s" % MSG_TYPE_TO_C[field.type.type]
+    elif field.type.is_array:
         return "*const uintptr_t"
-    elif type_.is_primitive_type():
-        return MSG_TYPE_TO_C[type_.type]
+    elif field.type.is_primitive_type():
+        return MSG_TYPE_TO_C[field.type.type]
     else:
         return "uintptr_t"
 
@@ -355,43 +358,30 @@ def get_ffi_return_type(type_, package_name, subfolder="msg"):
 def get_builtin_c_type(type_):
     if type_ == "bool":
         return "bool"
-
     if type_ == "byte":
         return "uint8_t"
-
     if type_ == "char":
         return "char"
-
     if type_ == "float32":
         return "float"
-
     if type_ == "float64":
         return "double"
-
     if type_ == "int8":
         return "int8_t"
-
     if type_ == "uint8":
         return "uint8_t"
-
     if type_ == "int16":
         return "int16_t"
-
     if type_ == "uint16":
         return "uint16_t"
-
     if type_ == "int32":
         return "int32_t"
-
     if type_ == "uint32":
         return "uint32_t"
-
     if type_ == "int64":
         return "int64_t"
-
     if type_ == "uint64":
         return "uint64_t"
-
     if type_ == "string":
         return "const char *"
 
@@ -399,11 +389,11 @@ def get_builtin_c_type(type_):
 
 
 def get_c_type(field, subfolder="msg"):
-    if is_primitive_array(field):
+    if field.type.is_array and field.type.is_primitive_type():
         return "%s const*" % get_builtin_c_type(field.type.type)
-    elif is_array(field):
+    elif field.type.is_array:
         return "uintptr_t const*"
-    elif is_primitive(field):
+    elif field.type.is_primitive_type():
         return get_builtin_c_type(field.type.type)
     else:
         return "uintptr_t"
@@ -477,15 +467,19 @@ def is_array(field):
     return field.type.is_array
 
 
-def is_non_fixed_size_array(field):
+def is_nested_array(field):
+    return field.type.is_array and not field.type.is_primitive_type()
+
+
+def is_dynamic_array(field):
     return field.type.is_array and not field.type.is_fixed_size_array()
 
 
-def is_fixed_size_array(field):
+def is_static_array(field):
     return field.type.is_array and field.type.is_fixed_size_array()
 
 
-def is_fixed_size_string_array(field):
+def is_static_string_array(field):
     return (
         field.type.is_array
         and field.type.is_fixed_size_array()
@@ -494,7 +488,7 @@ def is_fixed_size_string_array(field):
     )
 
 
-def is_fixed_size_primitive_array(field):
+def is_static_primitive_array(field):
     return (
         field.type.is_array
         and field.type.is_fixed_size_array()
@@ -502,7 +496,7 @@ def is_fixed_size_primitive_array(field):
     )
 
 
-def is_fixed_size_non_primitive_array(field):
+def is_static_nested_array(field):
     return (
         field.type.is_array
         and field.type.is_fixed_size_array()
@@ -510,11 +504,29 @@ def is_fixed_size_non_primitive_array(field):
     )
 
 
-def is_non_fixed_size_primitive_array(field):
+def is_dynamic_string_array(field):
     return (
         field.type.is_array
         and not field.type.is_fixed_size_array()
         and field.type.is_primitive_type()
+        and field.type.type == "string"
+    )
+
+
+def is_dynamic_primitive_array(field):
+    return (
+        field.type.is_array
+        and not field.type.is_fixed_size_array()
+        and field.type.is_primitive_type()
+        and field.type.type != "string"
+    )
+
+
+def is_dynamic_nested_array(field):
+    return (
+        field.type.is_array
+        and not field.type.is_fixed_size_array()
+        and not field.type.is_primitive_type()
     )
 
 
@@ -527,17 +539,25 @@ def is_string_array(field):
 
 
 def is_primitive_array(field):
-    return field.type.is_array and field.type.is_primitive_type()
-
-
-def is_non_primitive_array(field):
-    return field.type.is_array and not field.type.is_primitive_type()
+    return (
+        field.type.is_array
+        and field.type.is_primitive_type()
+        and field.type.type != "string"
+    )
 
 
 def is_string(field):
-    return field.type.is_primitive_type() and field.type.type == "string"
+    return (
+        not field.type.is_array
+        and field.type.is_primitive_type()
+        and field.type.type == "string"
+    )
 
 
 def is_primitive(field):
-    return field.type.is_primitive_type()
+    return (
+        not field.type.is_array
+        and field.type.is_primitive_type()
+        and field.type.type != "string"
+    )
 

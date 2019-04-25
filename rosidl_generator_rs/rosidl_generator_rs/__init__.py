@@ -91,6 +91,7 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         "is_dynamic_primitive_array": is_dynamic_primitive_array,
         "is_string": is_string,
         "is_primitive": is_primitive,
+        "is_nested": is_nested,
     }
     latest_target_timestamp = get_newest_modification_time(
         args["target_dependencies"]
@@ -561,3 +562,6 @@ def is_primitive(field):
         and field.type.type != "string"
     )
 
+
+def is_nested(field):
+    return not field.type.is_array and not field.type.is_primitive_type()

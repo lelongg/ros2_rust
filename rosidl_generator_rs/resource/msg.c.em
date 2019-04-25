@@ -14,10 +14,14 @@ nested_array_dict = {}
 @{
 type_name = msg_spec.base_type.type
 c_fields = []
+c_fields_name = []
 for field in msg_spec.fields:
     if is_dynamic_array(field):
+        c_fields_name.append("%s__len" % field.name)
         c_fields.append("size_t %s__len" % field.name)
-    c_fields.append("%s %s" % (get_c_type(field), field.name))
+    if not is_static_nested_array(field) and not is_nested(field):
+        c_fields_name.append("%s" % field.name)
+        c_fields.append("%s %s" % (get_c_type(field), field.name))
 
 msg_normalized_type = get_normalized_type(msg_spec.base_type, subfolder=subfolder)
 }@
@@ -54,15 +58,13 @@ uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type
     return (uintptr_t)ROSIDL_GET_MSG_TYPE_SUPPORT(@(msg_spec.base_type.pkg_name), @(subfolder), @(msg_spec.msg_name));
 }
 
-uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
-    @(',\n    '.join(c_fields))
+void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message_at(
+    @(',\n    '.join(["%s * ros_message" % msg_normalized_type] + c_fields))
 ) {
-    @(msg_normalized_type) * ros_message = @(msg_normalized_type)__create();
 @[for field in msg_spec.fields]@
 @
 @[    if is_static_string_array(field)]@
 @[        for i in range(0, field.type.array_size)]@
-    rosidl_generator_c__String__init(&ros_message->@(field.name)[@(i)]);
     rosidl_generator_c__String__assign(&ros_message->@(field.name)[@(i)], @(field.name)[@(i)]);
 @[        end for]@
 @
@@ -71,7 +73,7 @@ uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type
 @
 @[    elif is_static_nested_array(field)]@
 @[        for i in range(0, field.type.array_size)]@
-    memcpy(&ros_message->@(field.name)[@(i)], (@(get_normalized_type(field.type))*) @(field.name)[@(i)], sizeof(ros_message->@(field.name)[@(i)]));
+    // memcpy(&ros_message->@(field.name)[@(i)], (@(get_normalized_type(field.type))*) @(field.name)[@(i)], sizeof(ros_message->@(field.name)[@(i)]));
 @[        end for]@
 @
 @[    elif is_dynamic_string_array(field)]@
@@ -96,16 +98,24 @@ uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type
 @[    elif is_primitive(field)]@
     ros_message->@(field.name) = @(field.name);
 @
-@[    else]@
-    memcpy(&(ros_message->@(field.name)), (@(get_normalized_type(field.type))*) @(field.name), sizeof(ros_message->@(field.name)));
+@[    elif is_nested(field)]@
+    // memcpy(&(ros_message->@(field.name)), (@(get_normalized_type(field.type))*) @(field.name), sizeof(ros_message->@(field.name)));
 @[    end if]@
 @[end for]@
-@
+}
+
+uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
+    @(',\n    '.join(c_fields))
+) {
+    @(msg_normalized_type) * ros_message = @(msg_normalized_type)__create();
+    @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message_at(
+        @(',\n        '.join(["ros_message"] + c_fields_name))
+    );
     return (uintptr_t)ros_message;
 }
 
 void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(void * raw_ros_message) {
-    @(msg_normalized_type) * ros_message = raw_ros_message;
+    @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)raw_ros_message;
     @(msg_normalized_type)__destroy(ros_message);
 }
 

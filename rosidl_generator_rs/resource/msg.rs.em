@@ -46,7 +46,7 @@ extern "C" {
 @[    if is_dynamic_array(field)]@
       @(sanitize_identifier(field.name))__len: size_t,
 @[    end if]@
-@[    if not is_static_nested_array(field) and not is_nested(field)]@
+@[    if not is_static_nested_array(field) and not is_dynamic_nested_array(field) and not is_nested(field)]@
       @(sanitize_identifier(field.name)): @(get_ffi_type(field, package_name)),
 @[    end if]@
 @[end for]@
@@ -58,7 +58,7 @@ extern "C" {
 @[    if is_dynamic_array(field)]@
       @(sanitize_identifier(field.name))__len: size_t,
 @[    end if]@
-@[    if not is_static_nested_array(field) and not is_nested(field)]@
+@[    if not is_static_nested_array(field) and not is_dynamic_nested_array(field) and not is_nested(field)]@
       @(sanitize_identifier(field.name)): @(get_ffi_type(field, package_name)),
 @[    end if]@
 @[end for]@
@@ -85,8 +85,6 @@ impl @(type_name) {
 @[for field in msg_spec.fields]@
 @[    if is_string_array(field)]@
     let @(sanitize_identifier(field.name))__c_strings = self.@(sanitize_identifier(field.name)).iter().map(|s| CString::new(s.clone()).unwrap()).collect::<Vec<_>>();
-@[    elif is_dynamic_nested_array(field)]@
-    let @(sanitize_identifier(field.name))__natives = self.@(sanitize_identifier(field.name)).iter().map(|x| x.get_native_message()).collect::<Vec<_>>();
 @[    elif is_string(field)]@
     let @(sanitize_identifier(field.name))__c_string = CString::new(self.@(sanitize_identifier(field.name)).clone()).unwrap();
 @[    end if]@
@@ -104,8 +102,6 @@ impl @(type_name) {
         @(sanitize_identifier(field.name))__c_strings.iter().map(|c_string| c_string.as_ptr()).collect::<Vec<_>>().as_ptr(),
 @[    elif is_primitive_array(field)]@
         self.@(sanitize_identifier(field.name)).as_ptr(),
-@[    elif is_dynamic_nested_array(field)]@
-        @(sanitize_identifier(field.name))__natives.as_ptr(),
 @[    elif is_string(field)]@
         @(sanitize_identifier(field.name))__c_string.as_ptr(),
 @[    elif is_primitive(field)]@
@@ -121,6 +117,13 @@ impl @(type_name) {
 @[        for i in range(field.type.array_size)]@
       self.@(sanitize_identifier(field.name))[@(i)].get_native_message_at(@(sanitize_identifier(field.name))__item_handles[@(i)]);
 @[        end for]@
+@[    elif is_dynamic_nested_array(field)]@
+      let mut @(sanitize_identifier(field.name))__item_handles = Vec::with_capacity(self.@(sanitize_identifier(field.name)).len());
+      @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(native_message, @(sanitize_identifier(field.name))__item_handles.as_mut_ptr());
+      @(sanitize_identifier(field.name))__item_handles.set_len(self.@(sanitize_identifier(field.name)).len());
+      for i in 0..self.@(sanitize_identifier(field.name)).len() {
+        self.@(sanitize_identifier(field.name))[i].get_native_message_at(@(sanitize_identifier(field.name))__item_handles[i]);
+      }
 @[    elif is_nested(field)]@
       let @(sanitize_identifier(field.name))__handle = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(native_message);
       self.@(sanitize_identifier(field.name)).get_native_message_at(@(sanitize_identifier(field.name))__handle);
@@ -135,8 +138,6 @@ impl @(type_name) {
 @[for field in msg_spec.fields]@
 @[    if is_string_array(field)]@
     let @(sanitize_identifier(field.name))__c_strings = self.@(sanitize_identifier(field.name)).iter().map(|s| CString::new(s.clone()).unwrap()).collect::<Vec<_>>();
-@[    elif is_dynamic_nested_array(field)]@
-    let @(sanitize_identifier(field.name))__natives = self.@(sanitize_identifier(field.name)).iter().map(|x| x.get_native_message()).collect::<Vec<_>>();
 @[    elif is_string(field)]@
     let @(sanitize_identifier(field.name))__c_string = CString::new(self.@(sanitize_identifier(field.name)).clone()).unwrap();
 @[    end if]@
@@ -155,8 +156,6 @@ impl @(type_name) {
         @(sanitize_identifier(field.name))__c_strings.iter().map(|c_string| c_string.as_ptr()).collect::<Vec<_>>().as_ptr(),
 @[    elif is_primitive_array(field)]@
         self.@(sanitize_identifier(field.name)).as_ptr(),
-@[    elif is_dynamic_nested_array(field)]@
-        @(sanitize_identifier(field.name))__natives.as_ptr(),
 @[    elif is_string(field)]@
         @(sanitize_identifier(field.name))__c_string.as_ptr(),
 @[    elif is_primitive(field)]@
@@ -165,6 +164,7 @@ impl @(type_name) {
 @[end for]@
       );
 @
+
 @[for field in msg_spec.fields]@
 @[    if is_static_nested_array(field)]@
       let mut @(sanitize_identifier(field.name))__item_handles : [uintptr_t; @(field.type.array_size)] = [0; @(field.type.array_size)];
@@ -172,6 +172,13 @@ impl @(type_name) {
 @[        for i in range(field.type.array_size)]@
       self.@(sanitize_identifier(field.name))[@(i)].get_native_message_at(@(sanitize_identifier(field.name))__item_handles[@(i)]);
 @[        end for]@
+@[    elif is_dynamic_nested_array(field)]@
+      let mut @(sanitize_identifier(field.name))__item_handles = Vec::with_capacity(self.@(sanitize_identifier(field.name)).len());
+      @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(native_message, @(sanitize_identifier(field.name))__item_handles.as_mut_ptr());
+      @(sanitize_identifier(field.name))__item_handles.set_len(self.@(sanitize_identifier(field.name)).len());
+      for i in 0..self.@(sanitize_identifier(field.name)).len() {
+        self.@(sanitize_identifier(field.name))[i].get_native_message_at(@(sanitize_identifier(field.name))__item_handles[i]);
+      }
 @[    elif is_nested(field)]@
       let @(sanitize_identifier(field.name))__handle = @(package_name)_@(subfolder)_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_read_handle(native_message);
       self.@(sanitize_identifier(field.name)).get_native_message_at(@(sanitize_identifier(field.name))__handle);

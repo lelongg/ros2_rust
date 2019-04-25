@@ -19,7 +19,7 @@ for field in msg_spec.fields:
     if is_dynamic_array(field):
         c_fields_name.append("%s__len" % field.name)
         c_fields.append("size_t %s__len" % field.name)
-    if not is_static_nested_array(field) and not is_nested(field):
+    if not is_static_nested_array(field) and not is_dynamic_nested_array(field) and not is_nested(field):
         c_fields_name.append("%s" % field.name)
         c_fields.append("%s %s" % (get_c_type(field), field.name))
 
@@ -71,11 +71,6 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
 @[    elif is_static_primitive_array(field)]@
     memcpy(ros_message->@(field.name), @(field.name), @(field.type.array_size) * sizeof(@get_builtin_c_type(field.type.type)));
 @
-@[    elif is_static_nested_array(field)]@
-@[        for i in range(0, field.type.array_size)]@
-    // memcpy(&ros_message->@(field.name)[@(i)], (@(get_normalized_type(field.type))*) @(field.name)[@(i)], sizeof(ros_message->@(field.name)[@(i)]));
-@[        end for]@
-@
 @[    elif is_dynamic_string_array(field)]@
     rosidl_generator_c__String__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
     for (uint i = 0; i < @(field.name)__len; ++i) {
@@ -88,18 +83,12 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
 @
 @[    elif is_dynamic_nested_array(field)]@
     @(get_normalized_type(field.type))__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
-    for (int i = 0; i < @(field.name)__len; ++i) {
-        memcpy(&(ros_message->@(field.name).data[i]), (@(get_normalized_type(field.type))*) @(field.name)[i], sizeof(@(get_normalized_type(field.type))));
-    }
 @
 @[    elif is_string(field)]@
     rosidl_generator_c__String__assign(&(ros_message->@(field.name)), @(field.name));
 @
 @[    elif is_primitive(field)]@
     ros_message->@(field.name) = @(field.name);
-@
-@[    elif is_nested(field)]@
-    // memcpy(&(ros_message->@(field.name)), (@(get_normalized_type(field.type))*) @(field.name), sizeof(ros_message->@(field.name)));
 @[    end if]@
 @[end for]@
 }

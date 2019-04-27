@@ -1,8 +1,6 @@
 #include "rosidl_generator_c/message_type_support_struct.h"
 
-#include <assert.h>
 #include <string.h>
-#include <stdio.h>
 
 @{
 have_not_included_primitive_arrays = True

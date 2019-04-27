@@ -89,6 +89,9 @@ def generate_rs(generator_arguments_file, typesupport_impls):
         "is_dynamic_primitive_array": is_dynamic_primitive_array,
         "is_dynamic_nested_array": is_dynamic_nested_array,
         "is_dynamic_primitive_array": is_dynamic_primitive_array,
+        "is_single_string": is_single_string,
+        "is_single_primitive": is_single_primitive,
+        "is_single_nested": is_single_nested,
         "is_string": is_string,
         "is_primitive": is_primitive,
         "is_nested": is_nested,
@@ -547,7 +550,7 @@ def is_primitive_array(field):
     )
 
 
-def is_string(field):
+def is_single_string(field):
     return (
         not field.type.is_array
         and field.type.is_primitive_type()
@@ -555,7 +558,7 @@ def is_string(field):
     )
 
 
-def is_primitive(field):
+def is_single_primitive(field):
     return (
         not field.type.is_array
         and field.type.is_primitive_type()
@@ -563,5 +566,17 @@ def is_primitive(field):
     )
 
 
-def is_nested(field):
+def is_single_nested(field):
     return not field.type.is_array and not field.type.is_primitive_type()
+
+
+def is_string(field):
+    return field.type.is_primitive_type() and field.type.type == "string"
+
+
+def is_primitive(field):
+    return field.type.is_primitive_type() and field.type.type != "string"
+
+
+def is_nested(field):
+    return not field.type.is_primitive_type()

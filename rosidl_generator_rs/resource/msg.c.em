@@ -14,13 +14,10 @@ nested_array_dict = {}
 @{
 type_name = msg_spec.base_type.type
 c_fields = []
-c_fields_name = []
 for field in msg_spec.fields:
     if is_dynamic_array(field):
-        c_fields_name.append("%s__len" % field.name)
         c_fields.append("size_t %s__len" % field.name)
-    if not is_static_nested_array(field) and not is_dynamic_nested_array(field) and not is_nested(field):
-        c_fields_name.append("%s" % field.name)
+    if not is_nested(field):
         c_fields.append("%s %s" % (get_c_type(field), field.name))
 
 msg_normalized_type = get_normalized_type(msg_spec.base_type, subfolder=subfolder)
@@ -33,7 +30,7 @@ msg_normalized_type = get_normalized_type(msg_spec.base_type, subfolder=subfolde
 #include <rosidl_generator_c/primitives_sequence_functions.h>
 
 @[    end if]@
-@[    if (is_string(field) or is_string_array(field)) and have_not_included_string]@
+@[    if (is_single_string(field) or is_string_array(field)) and have_not_included_string]@
 @{have_not_included_string = False}@
 #include <rosidl_generator_c/string.h>
 #include <rosidl_generator_c/string_functions.h>
@@ -56,6 +53,11 @@ if is_nested_array(field):
 
 uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_type_support() {
     return (uintptr_t)ROSIDL_GET_MSG_TYPE_SUPPORT(@(msg_spec.base_type.pkg_name), @(subfolder), @(msg_spec.msg_name));
+}
+
+uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_create_native_message() {
+    @(msg_normalized_type) * ros_message = @(msg_normalized_type)__create();
+    return (uintptr_t)ros_message;
 }
 
 void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message_at(
@@ -84,32 +86,22 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
 @[    elif is_dynamic_nested_array(field)]@
     @(get_normalized_type(field.type))__Sequence__init(&(ros_message->@(field.name)), @(field.name)__len);
 @
-@[    elif is_string(field)]@
+@[    elif is_single_string(field)]@
     rosidl_generator_c__String__assign(&(ros_message->@(field.name)), @(field.name));
 @
-@[    elif is_primitive(field)]@
+@[    elif is_single_primitive(field)]@
     ros_message->@(field.name) = @(field.name);
 @[    end if]@
 @[end for]@
-}
-
-uintptr_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message(
-    @(',\n    '.join(c_fields))
-) {
-    @(msg_normalized_type) * ros_message = @(msg_normalized_type)__create();
-    @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_get_native_message_at(
-        @(',\n        '.join(["ros_message"] + c_fields_name))
-    );
-    return (uintptr_t)ros_message;
 }
 
 void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_destroy_native_message(void * raw_ros_message) {
     @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)raw_ros_message;
     @(msg_normalized_type)__destroy(ros_message);
 }
-
+@
 @[for field in msg_spec.fields]@
-@[    if is_dynamic_array(field)]@
+@[    if is_dynamic_array(field)]
 size_t @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name))_@(field.name)_array_size(uintptr_t message_handle) {
     @(msg_normalized_type) * ros_message = (@(msg_normalized_type) *)message_handle;
     return ros_message->@(field.name).size;
@@ -144,16 +136,15 @@ void @(package_name)_msg_@(convert_camel_case_to_lower_case_underscore(type_name
         item_handles[i] = (uintptr_t)(ros_message->@(field.name).data[i].data);
     }
 @
-@[    elif is_dynamic_primitive_array(field) or is_string(field)]@
+@[    elif is_dynamic_primitive_array(field) or is_single_string(field)]@
     return ros_message->@(field.name).data;
 @
-@[    elif is_static_primitive_array(field) or is_primitive(field)]@
+@[    elif is_static_primitive_array(field) or is_single_primitive(field)]@
     return ros_message->@(field.name);
 @
 @[    else]@
     return (uintptr_t)(&(ros_message->@(field.name)));
 @[    end if]@
 }
-@[end for]@
-
+@[end for]
 @[end for]
